@@ -19,7 +19,7 @@ class App(QMainWindow):
         self.resize(screen_geometry.width(), screen_geometry.height())
 
         self.playback = Playback()
-        self.song_editor = SongEditor(20, 2)
+        self.song_editor = SongEditor(10, 6)
 
         self.play_button = QPushButton("Play")
         self.play_button.clicked.connect(self.toggle_playback)
