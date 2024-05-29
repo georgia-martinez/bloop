@@ -2,6 +2,7 @@ import numpy as np
 import pygame
 import random
 import queue
+import time
 
 from music21 import note
 
@@ -10,19 +11,17 @@ class Playback:
         pygame.mixer.init()
 
         self.bpm = bpm
-        self.pause_duration = int(0.25 * (60 / bpm))
+        self.pause_duration = 0.25 * (60 / bpm)
 
     def play(self, song_data):
         processed_song = self.process_song(song_data)
-
-        print(processed_song)
 
         for i in range(len(song_data)):
             for instr in processed_song:
                 if instr[i] is not None:
                     self.play_sound(instr[i])
 
-            pygame.time.delay(self.pause_duration)
+            time.sleep(self.pause_duration)
 
     def process_song(self, song_data):
         processed_song = []
@@ -34,8 +33,6 @@ class Playback:
         for col in range(0, NUM_COLS, int(NUM_COLS / NUM_CHANNELS)):
             channel_data = np.array(song_data)
             channel_data = channel_data[:, col:col+2]
-
-            print(channel_data)
 
             processed_song.append(self.process_channel(channel_data))
 
@@ -61,17 +58,17 @@ class Playback:
             duration += 1
 
             freq = self.note_freq(prev_note)
-            wave = self.generate_square_wave(freq, duration)
+            wave = self.generate_square_wave(freq, duration * self.pause_duration)
             notes[prev_note_idx] = wave
 
             prev_note = curr_note
             prev_note_idx = row
+            duration = 1
 
-        print(notes)
         return notes
 
     def play_sound(self, waveform, volume=0.5):
-        sound = pygame.mixer.Sound(waveform.astype(np.float32))
+        sound = pygame.mixer.Sound(waveform)
         sound.set_volume(volume)
         sound.play()
 
@@ -79,7 +76,23 @@ class Playback:
         num_samples = int(sample_rate * duration)
         t = np.linspace(0, duration, num_samples, endpoint=False)
         wave = np.sign(np.sin(2 * np.pi * freq * t))
-        return wave
+
+        stereo_wave = np.zeros((num_samples * 2,), dtype=np.int16)
+
+        MAX_16_BIT = np.iinfo(np.int16).max
+
+        stereo_wave[0::2] = wave * MAX_16_BIT  # Left channel
+        stereo_wave[1::2] = wave * MAX_16_BIT  # Right channel
+
+        return stereo_wave.tobytes()
+    
+    # def generate_square_wave(self, freq, duration, sample_rate=44100):
+    #     num_samples = int(sample_rate * duration)
+    #     t = np.linspace(0, duration, num_samples, endpoint=False)
+    #     wave = 0.5 * np.sin(2 * np.pi * freq * t)
+    #     wave = np.int8(wave * 127)
+    #     wave = np.column_stack((wave, wave)).tobytes()
+    #     return wave
 
     def note_freq(self, note_name):
         return note.Note(note_name).pitch.frequency
